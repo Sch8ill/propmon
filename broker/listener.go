@@ -11,6 +11,12 @@ import (
 	"github.com/sch8ill/propmon/proposal"
 )
 
+const (
+	pingSubject       = "*.proposal-ping.v3"
+	registerSubject   = "*.proposal-register.v3"
+	unregisterSubject = "*.proposal-unregister.v3"
+)
+
 type Listener struct {
 	brokerUrl  string
 	conn       *nats.Conn
@@ -37,15 +43,15 @@ func (l *Listener) Listen() error {
 
 	log.Info().Str("addr", l.brokerUrl).Msg("connected to broker")
 
-	if _, err := l.conn.Subscribe("*.proposal-ping.v3", l.onPing); err != nil {
+	if _, err := l.conn.Subscribe(pingSubject, l.onPing); err != nil {
 		return err
 	}
 
-	if _, err := l.conn.Subscribe("*.proposal-register.v3", l.onRegistration); err != nil {
+	if _, err := l.conn.Subscribe(registerSubject, l.onRegistration); err != nil {
 		return err
 	}
 
-	if _, err := l.conn.Subscribe("*.proposal-unregister.v3", l.onUnregistration); err != nil {
+	if _, err := l.conn.Subscribe(unregisterSubject, l.onUnregistration); err != nil {
 		return err
 	}
 
@@ -53,6 +59,7 @@ func (l *Listener) Listen() error {
 }
 
 func (l *Listener) onPing(msg *nats.Msg) {
+	metrics.NatsMsgReceived(msg)
 	p, err := parseProposal(msg)
 	if err != nil {
 		metrics.ProposalInvalid()
@@ -63,6 +70,7 @@ func (l *Listener) onPing(msg *nats.Msg) {
 }
 
 func (l *Listener) onRegistration(msg *nats.Msg) {
+	metrics.NatsMsgReceived(msg)
 	p, err := parseProposal(msg)
 	if err != nil {
 		metrics.ProposalInvalid()
@@ -73,6 +81,7 @@ func (l *Listener) onRegistration(msg *nats.Msg) {
 }
 
 func (l *Listener) onUnregistration(msg *nats.Msg) {
+	metrics.NatsMsgReceived(msg)
 	p, err := parseProposal(msg)
 	if err != nil {
 		metrics.ProposalInvalid()

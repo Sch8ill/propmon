@@ -97,6 +97,11 @@ scrape_configs:
   - labels: service_type
 
 
+- propmon_nats_bytes_rx
+  - Number of bytes received by NATS listener
+  - type: counter
+  - labels: subject
+
 ### CLI flags
 
 ```

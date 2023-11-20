@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 
@@ -47,8 +48,13 @@ var providerCount = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "Provider count",
 }, []string{"country", "node_type"})
 
+var natsBytesReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Name: "propmon_nats_bytes_rx",
+	Help: "Number of bytes received by NATS listener",
+}, []string{"subject"})
+
 func init() {
-	registry.MustRegister(proposalRegistered, proposalPing, proposalUnregistered, proposalExpired, proposalInvalid, proposalCount, providerCount)
+	registry.MustRegister(proposalRegistered, proposalPing, proposalUnregistered, proposalExpired, proposalInvalid, proposalCount, providerCount, natsBytesReceived)
 }
 
 func ProposalPing() {
@@ -101,4 +107,8 @@ func ReportStatus(repository *proposal.Repository, expired int) {
 	proposalExpired.Add(float64(expired))
 
 	log.Info().Int("proposals", repository.CountProposals()).Int("providers", repository.CountProviders()).Int("expired", expired).Msg("removed expired proposals")
+}
+
+func NatsMsgReceived(msg *nats.Msg) {
+	natsBytesReceived.WithLabelValues(msg.Subject).Add(float64(len(msg.Data)))
 }
