@@ -6,11 +6,20 @@
 
 ---
 
-`propmon` is a Prometheus metrics exporter designed to monitor service proposals within the [Mysterium Network](https://mysterium.network). Each [node](https://github.com/mysteriumnetwork/node) in the [Mysterium Network](https://mysterium.network) advertises its services by transmitting service proposals to a message broker through [nats](https://github.com/nats-io). The [discovery](https://github.com/mysteriumnetwork/discovery) service captures these service proposals and compiles them into a list, which is then made accessible to Mysterium Network clients through a [REST API](https://discovery.mysterium.network/api/v4/proposals).
+`propmon` is a Prometheus metrics exporter designed to monitor service proposals within
+the [Mysterium Network](https://mysterium.network). Each [node](https://github.com/mysteriumnetwork/node) in
+the [Mysterium Network](https://mysterium.network) advertises its services by transmitting service proposals to a
+message broker through [nats](https://github.com/nats-io).
+The [discovery](https://github.com/mysteriumnetwork/discovery) service captures these service proposals and compiles
+them into a list, which is then made accessible to Mysterium Network clients through
+a [REST API](https://discovery.mysterium.network/api/v4/proposals).
 
-Similar to the [discovery](https://github.com/mysteriumnetwork/discovery) service, `propmon` listens for incoming service proposals. It stores these proposals and generates metrics related to them, which are exposed on port [9500](http://localhost:9500/metrics).
+Similar to the [discovery](https://github.com/mysteriumnetwork/discovery) service, `propmon` listens for incoming
+service proposals. It stores these proposals and generates metrics related to them, which are exposed on
+port [9500](http://localhost:9500/metrics).
 
-A typical service proposal includes:
+A service proposal includes:
+
 - Provider ID of the node
 - Service type
 - Approximate GEO-location of the node
@@ -38,6 +47,7 @@ make
 ```
 
 Build command:
+
 ```bash
 make build
 ```
@@ -55,52 +65,21 @@ scrape_configs:
   - job_name: propmon
     scrape_interval: 15s
     static_configs:
-      - targets: ["localhost:9500"]
+      - targets: [ "localhost:9500" ]
 ```
 
 ### Metrics
 
-- propmon_proposal_ping 
-  - Service Proposal ping
-  - type: counter
-
-
-- propmon_proposal_registered 
-  - Service Proposal registered
-  - type: counter
-
-
-- propmon_proposal_unregistered Service 
-  - Proposal unregistered
-  - type: counter
-
-
-- propmon_proposal_expired
-    - Service Proposal expired
-    - type: counter
-
-
-- propmon_proposal_invalid
-    - Service Proposal invalid
-    - type: counter
-
-
-- propmon_provider_count
-  - Provider count
-  - type: gauge
-  - labels: country, node_type
-
-
-- propmon_proposal_count
-  - Service Proposal count
-  - type: gauge
-  - labels: service_type
-
-
-- propmon_nats_bytes_rx
-  - Number of bytes received by NATS listener
-  - type: counter
-  - labels: subject
+| name                          | description                               | labels             | type    |
+|-------------------------------|-------------------------------------------|--------------------|---------|
+| propmon_proposal_ping         | Service Proposal ping                     |                    | counter |
+| propmon_proposal_registered   | Service Proposal registered               |                    | counter |
+| propmon_proposal_unregistered | Service Proposal unregistered             |                    | counter |
+| propmon_proposal_expired      | Service Proposal expired                  |                    | counter |
+| propmon_proposal_invalid      | Service Proposal invalid                  |                    | counter |
+| propmon_proposal_count        | Service Proposal count                    | service_type       | gauge   |
+| propmon_provider_count        | Provider count                            | country, node_type | gauge   |
+| propmon_nats_bytes_rx         | Number of bytes received by NATS listener | subject            | counter |
 
 ### CLI flags
 
