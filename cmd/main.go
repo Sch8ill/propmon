@@ -9,9 +9,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 
+	"github.com/sch8ill/propmon/api"
 	"github.com/sch8ill/propmon/broker"
 	"github.com/sch8ill/propmon/config"
-	"github.com/sch8ill/propmon/metrics"
 	"github.com/sch8ill/propmon/proposal"
 	"github.com/sch8ill/propmon/proposal/expiration"
 	"github.com/sch8ill/propmon/quality"
@@ -46,8 +46,9 @@ func monitorProposals(ctx *cli.Context) error {
 	qualityService.Start()
 	defer qualityService.Stop()
 
-	if err := metrics.Listen(config.MetricsAddress); err != nil {
-		return fmt.Errorf("failed to start prometheus exporter: %w", err)
+	apiServer := api.New(config.MetricsAddress)
+	if err := apiServer.Run(); err != nil {
+		return fmt.Errorf("api server: %w", err)
 	}
 
 	return nil

@@ -7,6 +7,9 @@ import (
 	"github.com/sch8ill/propmon/proposal"
 )
 
+// custom registry to discard default go metrics
+var Registry = prometheus.NewRegistry()
+
 type providerLabel struct {
 	Country  string
 	NodeType string
@@ -73,7 +76,7 @@ var uptime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 }, []string{"country", "node_type"})
 
 func init() {
-	registry.MustRegister(
+	Registry.MustRegister(
 		proposalRegistered,
 		proposalPing,
 		proposalUnregistered,
@@ -143,10 +146,19 @@ func ActiveProviders(providers []*proposal.Provider) {
 
 	for label, count := range totals {
 		providerCount.WithLabelValues(label.Country, label.NodeType).Set(float64(count))
-		quality.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Quality / float64(count))
-		latency.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Latency / float64(count))
-		bandwidth.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Bandwidth / float64(count))
-		uptime.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Uptime / float64(count))
+
+		if qualities[label].Quality != 0 {
+			quality.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Quality / float64(count))
+		}
+		if qualities[label].Quality != 0 {
+			latency.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Latency / float64(count))
+		}
+		if qualities[label].Bandwidth != 0 {
+			bandwidth.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Bandwidth / float64(count))
+		}
+		if qualities[label].Uptime != 0 {
+			uptime.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Uptime / float64(count))
+		}
 	}
 }
 
