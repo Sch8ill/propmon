@@ -1,4 +1,4 @@
-FROM golang:1.21.4-alpine AS builder
+FROM golang:1.24.0-alpine AS builder
 
 WORKDIR /go/src/propmon
 
@@ -8,9 +8,9 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -o propmon /go/src/propmon/cmd/main.go
+RUN CGO_ENABLED=0 go build -ldflags="-s" -trimpath -o propmon /go/src/propmon/cmd/main.go
 
-FROM alpine:3.18
+FROM alpine:3.21
 
 COPY --from=builder /go/src/propmon/propmon /usr/bin/propmon
 
