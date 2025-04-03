@@ -4,26 +4,29 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/sch8ill/propmon/metrics"
 	"github.com/sch8ill/propmon/proposal"
 )
 
 type Service struct {
 	repository *proposal.Repository
-	jobDelay   time.Duration
+	interval   time.Duration
 	stopCh     chan struct{}
 	waitGroup  sync.WaitGroup
 }
 
-func NewExpirationService(repository *proposal.Repository, jobDelay time.Duration) *Service {
+func NewExpirationService(repository *proposal.Repository, interval time.Duration) *Service {
 	return &Service{
 		repository: repository,
-		jobDelay:   jobDelay,
+		interval:   interval,
 		stopCh:     make(chan struct{}),
 	}
 }
 
 func (e *Service) Start() {
+	log.Debug().Msg("Starting expiration service")
 	e.waitGroup.Add(1)
 	go e.run()
 }
@@ -44,9 +47,9 @@ func (e *Service) run() {
 		default:
 			if e.repository.CountProposals() > 0 {
 				expired := e.repository.RemoveExpired()
-				metrics.ReportStatus(e.repository, expired)
+				metrics.UpdateMetrics(e.repository, expired)
 			}
-			time.Sleep(e.jobDelay)
+			time.Sleep(e.interval)
 		}
 	}
 }

@@ -5,16 +5,14 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"github.com/sch8ill/propmon/config"
 )
 
 // custom registry to discard default go metrics
 var registry = prometheus.NewRegistry()
 
-func Listen() error {
+func Listen(addr string) error {
 	http.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-	if err := http.ListenAndServe(config.MetricsAddress, nil); err != nil {
+	if err := http.ListenAndServe(addr, nil); err != nil {
 		return err
 	}
 

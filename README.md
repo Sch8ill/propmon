@@ -42,7 +42,7 @@ docker run -p 9500:9500 sch8ill/propmon:latest
 Requires:
 
 ```
-go >= 1.21
+go >= 1.24
 make
 ```
 
@@ -84,11 +84,13 @@ scrape_configs:
 ### CLI flags
 
 ```
-   --broker-address value        broker address to listen for proposals (default: "nats://broker.mysterium.network:4222")
-   --proposal-lifetime value     lifetime of a proposal until it expires if not renewed (default: 3m10s)
-   --expiration-job-delay value  delay between expiration job runs (default: 20s)
-   --metrics-address value       address the prometheus metrics exporter listens on (default: ":9500")
-   --help, -h                    show help
+   --broker-address value           broker address to listen for proposals (default: "nats://broker.mysterium.network:4222")
+   --proposal-lifetime value        lifetime of a proposal until it expires if not renewed (default: 3m10s)
+   --expiration-job-delay value     delay between expiration job runs (default: 20s)
+   --metrics-address value          address the prometheus metrics exporter listens on (default: ":9500")
+   --quality-oracle value           url of the quality oracle (default: "https://quality.mysterium.network")
+   --quality-update-interval value  interval between quality data updates (default: 30m0s)
+   --help, -h                       show help
 ```
 
 ## License

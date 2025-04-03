@@ -12,7 +12,7 @@ type Repository struct {
 }
 
 type proposalRecord struct {
-	proposal Proposal
+	proposal *Proposal
 	expires  time.Time
 }
 
@@ -23,71 +23,92 @@ func NewProposalRepository(proposalLifetime time.Duration) *Repository {
 	}
 }
 
-func (pr *Repository) Store(p Proposal) {
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
+func (r *Repository) Store(p *Proposal) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	pr.proposals[p.ServiceKey()] = proposalRecord{
+	r.proposals[p.ServiceKey()] = proposalRecord{
 		proposal: p,
-		expires:  time.Now().Add(pr.proposalLifetime),
+		expires:  time.Now().Add(r.proposalLifetime),
 	}
 }
 
-func (pr *Repository) Get(key string) Proposal {
-	pr.mu.RLock()
-	defer pr.mu.RUnlock()
+func (r *Repository) Get(key string) *Proposal {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
-	return pr.proposals[key].proposal
+	return r.proposals[key].proposal
 }
 
-func (pr *Repository) Exists(key string) bool {
-	if _, ok := pr.proposals[key]; ok {
+func (r *Repository) Exists(key string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if _, ok := r.proposals[key]; ok {
 		return true
 	}
 
 	return false
 }
 
-func (pr *Repository) Remove(key string) {
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
+func (r *Repository) Remove(key string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	delete(pr.proposals, key)
+	delete(r.proposals, key)
 }
 
-func (pr *Repository) Proposals() []Proposal {
-	pr.mu.RLock()
-	defer pr.mu.RUnlock()
-	var proposals []Proposal
+func (r *Repository) Renew(id string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	for _, rcd := range pr.proposals {
+	rcd := r.proposals[id]
+	rcd.expires = time.Now().Add(r.proposalLifetime)
+	r.proposals[id] = rcd
+}
+
+func (r *Repository) RenewOrStore(p *Proposal) {
+	id := p.ServiceKey()
+
+	if r.Exists(id) {
+		r.Renew(id)
+	} else {
+		r.Store(p)
+	}
+}
+
+func (r *Repository) Proposals() []*Proposal {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	// TODO: create fixed size array once null pointer dereference in metrics.ActiveProposals is fixed
+	var proposals []*Proposal
+
+	for _, rcd := range r.proposals {
 		proposals = append(proposals, rcd.proposal)
 	}
 
 	return proposals
 }
 
-func (pr *Repository) Providers() []Provider {
-	pr.mu.RLock()
-	defer pr.mu.RUnlock()
-	var providers = make(map[string]Provider)
+func (r *Repository) Providers() []*Provider {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	providers := make(map[string]*Provider)
 
-	for _, rcd := range pr.proposals {
+	for _, rcd := range r.proposals {
 		p := rcd.proposal
 
-		if _, ok := providers[p.ProviderID]; ok {
-			provider := providers[p.ProviderID]
+		if provider, ok := providers[p.ProviderID]; ok {
 			provider.Services = append(provider.Services, Service{
 				ServiceType:    p.ServiceType,
 				Compatibility:  p.Compatibility,
 				Contacts:       p.Contacts,
 				AccessPolicies: p.AccessPolicies,
 			})
-			providers[p.ProviderID] = provider
 			continue
 		}
 
-		providers[p.ProviderID] = Provider{
+		providers[p.ProviderID] = &Provider{
 			ID:       p.ProviderID,
 			Location: p.Location,
 			Quality:  p.Quality,
@@ -102,7 +123,7 @@ func (pr *Repository) Providers() []Provider {
 		}
 	}
 
-	var providerSlice []Provider
+	var providerSlice []*Provider
 	for _, p := range providers {
 		providerSlice = append(providerSlice, p)
 	}
@@ -110,32 +131,61 @@ func (pr *Repository) Providers() []Provider {
 	return providerSlice
 }
 
-func (pr *Repository) CountProposals() int {
-	pr.mu.RLock()
-	defer pr.mu.RUnlock()
-	return len(pr.proposals)
+func (r *Repository) Countries() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	countries := make(map[string]struct{})
+
+	for _, rcd := range r.proposals {
+		countries[rcd.proposal.Location.Country] = struct{}{}
+	}
+
+	var countriesSlice []string
+	for country := range countries {
+		countriesSlice = append(countriesSlice, country)
+	}
+
+	return countriesSlice
 }
 
-func (pr *Repository) CountProviders() int {
-	pr.mu.RLock()
-	defer pr.mu.RUnlock()
+func (r *Repository) CountProposals() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.proposals)
+}
+
+func (r *Repository) CountProviders() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	providers := make(map[string]bool)
 
-	for _, rcd := range pr.proposals {
+	for _, rcd := range r.proposals {
 		providers[rcd.proposal.ProviderID] = true
 	}
 
 	return len(providers)
 }
 
-func (pr *Repository) RemoveExpired() int {
-	pr.mu.Lock()
-	defer pr.mu.Unlock()
+func (r *Repository) UpdateQuality(qualityData map[string]*Quality) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for id, quality := range qualityData {
+		if rcd, ok := r.proposals[id]; ok {
+			rcd.proposal.Quality = quality
+			r.proposals[id] = rcd
+		}
+	}
+}
+
+func (r *Repository) RemoveExpired() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	var expired int
 
-	for key, record := range pr.proposals {
+	for key, record := range r.proposals {
 		if time.Now().After(record.expires) {
-			delete(pr.proposals, key)
+			delete(r.proposals, key)
 			expired++
 		}
 	}

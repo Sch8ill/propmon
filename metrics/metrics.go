@@ -3,7 +3,6 @@ package metrics
 import (
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rs/zerolog/log"
 
 	"github.com/sch8ill/propmon/proposal"
 )
@@ -53,8 +52,41 @@ var natsBytesReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Help: "Number of bytes received by NATS listener",
 }, []string{"subject"})
 
+var quality = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "propmon_quality",
+	Help: "Average quality score for country and node type",
+}, []string{"country", "node_type"})
+
+var latency = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "propmon_latency",
+	Help: "Average latency for country and node type",
+}, []string{"country", "node_type"})
+
+var bandwidth = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "propmon_bandwidth",
+	Help: "Average bandwidth for country and node type",
+}, []string{"country", "node_type"})
+
+var uptime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "propmon_uptime",
+	Help: "Average uptime for country and node type",
+}, []string{"country", "node_type"})
+
 func init() {
-	registry.MustRegister(proposalRegistered, proposalPing, proposalUnregistered, proposalExpired, proposalInvalid, proposalCount, providerCount, natsBytesReceived)
+	registry.MustRegister(
+		proposalRegistered,
+		proposalPing,
+		proposalUnregistered,
+		proposalExpired,
+		proposalInvalid,
+		proposalCount,
+		providerCount,
+		natsBytesReceived,
+		quality,
+		latency,
+		bandwidth,
+		uptime,
+	)
 }
 
 func ProposalPing() {
@@ -73,7 +105,7 @@ func ProposalUnregistered() {
 	proposalUnregistered.Inc()
 }
 
-func ActiveProposals(proposals []proposal.Proposal) {
+func ActiveProposals(proposals []*proposal.Proposal) {
 	serviceTypes := make(map[string]int)
 
 	for _, p := range proposals {
@@ -85,28 +117,43 @@ func ActiveProposals(proposals []proposal.Proposal) {
 	}
 }
 
-func ActiveProviders(providers []proposal.Provider) {
-	labels := make(map[providerLabel]int)
+func ActiveProviders(providers []*proposal.Provider) {
+	totals := make(map[providerLabel]int)
+	qualities := make(map[providerLabel]*proposal.Quality)
 
 	for _, p := range providers {
-		l := providerLabel{
+		label := providerLabel{
 			Country:  p.Location.Country,
 			NodeType: p.Location.IpType,
 		}
-		labels[l]++
+		totals[label]++
+
+		if p.Quality == nil {
+			continue
+		}
+
+		if qualities[label] == nil {
+			qualities[label] = &proposal.Quality{}
+		}
+		qualities[label].Quality += p.Quality.Quality
+		qualities[label].Latency += p.Quality.Latency
+		qualities[label].Bandwidth += p.Quality.Bandwidth
+		qualities[label].Uptime += p.Quality.Uptime
 	}
 
-	for label, count := range labels {
+	for label, count := range totals {
 		providerCount.WithLabelValues(label.Country, label.NodeType).Set(float64(count))
+		quality.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Quality / float64(count))
+		latency.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Latency / float64(count))
+		bandwidth.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Bandwidth / float64(count))
+		uptime.WithLabelValues(label.Country, label.NodeType).Set(qualities[label].Uptime / float64(count))
 	}
 }
 
-func ReportStatus(repository *proposal.Repository, expired int) {
+func UpdateMetrics(repository *proposal.Repository, expired int) {
 	ActiveProposals(repository.Proposals())
 	ActiveProviders(repository.Providers())
 	proposalExpired.Add(float64(expired))
-
-	log.Info().Int("proposals", repository.CountProposals()).Int("providers", repository.CountProviders()).Int("expired", expired).Msg("removed expired proposals")
 }
 
 func NatsMsgReceived(msg *nats.Msg) {

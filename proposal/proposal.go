@@ -7,7 +7,7 @@ type Proposal struct {
 	ServiceType    string         `json:"service_type"`
 	Location       Location       `json:"location"`
 	Contacts       []Contact      `json:"contacts"`
-	Quality        Quality        `json:"quality"`
+	Quality        *Quality       `json:"quality"`
 	AccessPolicies []AccessPolicy `json:"access_policies,omitempty"`
 }
 
@@ -40,8 +40,9 @@ type AccessPolicy struct {
 }
 
 type Quality struct {
-	Quality   float64 `json:"quality"`
-	Latency   float64 `json:"latency"`
-	Bandwidth float64 `json:"bandwidth"`
-	Uptime    float64 `json:"uptime"`
+	Quality        float64 `json:"quality"`
+	Latency        float64 `json:"latency"`
+	Bandwidth      float64 `json:"bandwidth"`
+	Uptime         float64 `json:"uptime"`
+	RestrictedNode bool    `json:"restrictedNode"`
 }

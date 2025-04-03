@@ -24,7 +24,7 @@ type Listener struct {
 }
 
 type Msg struct {
-	Proposal proposal.Proposal
+	Proposal *proposal.Proposal
 }
 
 func NewListener(brokerUrl string, repository *proposal.Repository) *Listener {
@@ -41,7 +41,7 @@ func (l *Listener) Listen() error {
 	}
 	l.conn = conn
 
-	log.Info().Str("addr", l.brokerUrl).Msg("connected to broker")
+	log.Info().Str("addr", l.brokerUrl).Msg("Connected to broker")
 
 	if _, err := l.conn.Subscribe(pingSubject, l.onPing); err != nil {
 		return err
@@ -65,7 +65,7 @@ func (l *Listener) onPing(msg *nats.Msg) {
 		metrics.ProposalInvalid()
 		return
 	}
-	l.repository.Store(p)
+	l.repository.RenewOrStore(p)
 	metrics.ProposalPing()
 }
 
@@ -95,11 +95,10 @@ func (l *Listener) Shutdown() {
 	l.conn.Close()
 }
 
-func parseProposal(msg *nats.Msg) (proposal.Proposal, error) {
-	brokerMsg := &Msg{}
-
-	if err := json.Unmarshal(msg.Data, brokerMsg); err != nil {
-		return proposal.Proposal{}, fmt.Errorf("failed to parse proposal: %w", err)
+func parseProposal(msg *nats.Msg) (*proposal.Proposal, error) {
+	var brokerMsg Msg
+	if err := json.Unmarshal(msg.Data, &brokerMsg); err != nil {
+		return nil, fmt.Errorf("failed to parse proposal: %w", err)
 	}
 
 	return brokerMsg.Proposal, nil

@@ -3,7 +3,7 @@ package proposal
 type Provider struct {
 	ID       string
 	Location Location
-	Quality  Quality
+	Quality  *Quality
 	Services []Service
 }
 

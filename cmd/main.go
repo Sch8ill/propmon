@@ -14,6 +14,7 @@ import (
 	"github.com/sch8ill/propmon/metrics"
 	"github.com/sch8ill/propmon/proposal"
 	"github.com/sch8ill/propmon/proposal/expiration"
+	"github.com/sch8ill/propmon/quality"
 )
 
 func main() {
@@ -21,7 +22,7 @@ func main() {
 
 	app := createApp()
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal().Err(err).Msg("error encountered")
+		log.Fatal().Err(err).Msg("Error encountered")
 	}
 }
 
@@ -29,17 +30,23 @@ func monitorProposals(ctx *cli.Context) error {
 	config.SetConfig(ctx)
 
 	r := proposal.NewProposalRepository(config.ProposalLifetime)
-	expirationService := expiration.NewExpirationService(r, config.ExpirationJobDelay)
-	listener := broker.NewListener(config.BrokerAddress, r)
-	expirationService.Start()
-	defer expirationService.Stop()
 
+	listener := broker.NewListener(config.BrokerAddress, r)
 	if err := listener.Listen(); err != nil {
 		return fmt.Errorf("failed to start broker listener: %w", err)
 	}
 	defer listener.Shutdown()
 
-	if err := metrics.Listen(); err != nil {
+	expirationService := expiration.NewExpirationService(r, config.ExpirationJobInterval)
+	expirationService.Start()
+	defer expirationService.Stop()
+
+	qualityOracle := quality.NewOracle(config.QualityOracle)
+	qualityService := quality.NewQualityService(qualityOracle, r, config.QualityUpdateInterval, config.ProposalLifetime)
+	qualityService.Start()
+	defer qualityService.Stop()
+
+	if err := metrics.Listen(config.MetricsAddress); err != nil {
 		return fmt.Errorf("failed to start prometheus exporter: %w", err)
 	}
 
@@ -58,7 +65,7 @@ func createApp() *cli.App {
 
 func createLogger() {
 	consoleWriter := zerolog.ConsoleWriter{
-		Out:        os.Stderr,
+		Out:        os.Stdout,
 		TimeFormat: time.DateTime,
 	}
 	log.Logger = log.Output(consoleWriter).Level(zerolog.DebugLevel).With().Timestamp().Logger()
