@@ -90,6 +90,35 @@ func (r *Repository) Proposals() []*Proposal {
 	return proposals
 }
 
+func (r *Repository) Match(filter *Proposal, max int) []*Proposal {
+	var matches []*Proposal
+
+	for _, p := range r.Proposals() {
+		if filter.ProviderID != "" && filter.ProviderID != p.ProviderID {
+			continue
+		}
+
+		if filter.ServiceType != "" && filter.ServiceType != p.ServiceType {
+			continue
+		}
+
+		if filter.Location.Country != "" && filter.Location.Country != p.Location.Country {
+			continue
+		}
+
+		if filter.Location.IpType != "" && filter.Location.IpType != p.Location.IpType {
+			continue
+		}
+
+		matches = append(matches, p)
+		if len(matches) >= max {
+			break
+		}
+	}
+
+	return matches
+}
+
 func (r *Repository) Providers() []*Provider {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

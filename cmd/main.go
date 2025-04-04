@@ -46,7 +46,7 @@ func monitorProposals(ctx *cli.Context) error {
 	qualityService.Start()
 	defer qualityService.Stop()
 
-	apiServer := api.New(config.MetricsAddress)
+	apiServer := api.New(config.MetricsAddress, r)
 	if err := apiServer.Run(); err != nil {
 		return fmt.Errorf("api server: %w", err)
 	}
